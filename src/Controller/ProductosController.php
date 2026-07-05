@@ -13,11 +13,33 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\String\Slugger\SluggerInterface;
+use Picqer\Barcode\BarcodeGeneratorSVG;
 
 #[Route('/productos')]
 final class ProductosController extends AbstractController
 {
+
+
+    #[Route('/{id}/barcode', name: 'app_productos_barcode', methods: ['GET'])]
+    public function barcode(Productos $producto): Response
+    {
+        $codigoBarra = $producto->getCodigoBarra();
+
+        if (!$codigoBarra) {
+            throw $this->createNotFoundException('El producto no tiene código de barras');
+        }
+
+        $generator = new BarcodeGeneratorSVG();
+        $barcode = $generator->getBarcode($codigoBarra, $generator::TYPE_CODE_128);
+
+        return new Response($barcode, 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Content-Disposition' => 'inline; filename="barcode-' . $producto->getId() . '.svg"'
+        ]);
+    }
+
     #[Route('/bulk-fetch', name: 'app_productos_bulk_fetch', methods: ['GET'])]
     public function bulkFetch(
         Request $request,
@@ -245,6 +267,7 @@ final class ProductosController extends AbstractController
             $queryBuilder
                 ->where('p.nombre LIKE :search')
                 ->orWhere('p.descripcion LIKE :search')
+                ->orWhere('p.codigo_barra LIKE :search')
                 ->setParameter('search', '%' . $search . '%');
         }
 
@@ -278,22 +301,52 @@ final class ProductosController extends AbstractController
         ]);
     }
 
+
+
     #[Route('/new', name: 'app_productos_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, EntityManagerInterface $entityManager): Response
+    public function new(Request $request, EntityManagerInterface $entityManager, SluggerInterface $slugger): Response
     {
         $producto = new Productos();
 
-        #Por defecto el producto se crea como activo
+        # Por defecto el producto se crea como activo
         $producto->setActivo(true);
 
         $form = $this->createForm(ProductosType::class, $producto);
         $form->handleRequest($request);
 
-
-
         if ($form->isSubmitted() && $form->isValid()) {
+
+            # Subir imagen
+            $imagenFile = $form->get('imagen')->getData();
+
+            if ($imagenFile) {
+                $originalFilename = pathinfo($imagenFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = $slugger->slug($originalFilename);
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $imagenFile->guessExtension();
+
+                try {
+                    $imagenFile->move(
+                        $this->getParameter('kernel.project_dir') . '/public/uploads/productos',
+                        $newFilename
+                    );
+                    $producto->setImagen($newFilename);
+                } catch (FileException $e) {
+                    $this->addFlash('danger', 'Error al subir la imagen: ' . $e->getMessage());
+                }
+            }
+
+            // Guardar producto para obtener el ID
             $entityManager->persist($producto);
             $entityManager->flush();
+
+            // Generar código de barras basado en categoría e ID
+            $categoriaId = $producto->getCategoria() ? $producto->getCategoria()->getId() : 0;
+            $codigoBarra = str_pad($categoriaId, 3, '0', STR_PAD_LEFT) . str_pad($producto->getId(), 9, '0', STR_PAD_LEFT);
+            $producto->setCodigoBarra($codigoBarra);
+
+            $entityManager->flush();
+
+            $this->addFlash('success', 'Producto creado correctamente');
 
             return $this->redirectToRoute('app_productos_index', [], Response::HTTP_SEE_OTHER);
         }

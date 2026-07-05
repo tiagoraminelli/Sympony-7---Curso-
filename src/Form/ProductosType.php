@@ -6,6 +6,7 @@ use App\Entity\Productos;
 use App\Entity\Categoria;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -46,6 +47,12 @@ class ProductosType extends AbstractType
                 'choice_label' => 'nombre',
                 'label' => 'Categoría',
                 'placeholder' => 'Seleccione una categoría',
+            ])
+            ->add('imagen', FileType::class, [
+                'label' => 'Imagen',
+                'required' => false,
+                'mapped' => false,
+                'attr' => ['accept' => 'image/*', 'class' => 'form-control']
             ])
             ->add('activo', CheckboxType::class, [
                 'label' => 'Activo',

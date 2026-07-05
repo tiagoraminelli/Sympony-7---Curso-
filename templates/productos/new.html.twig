@@ -159,6 +159,31 @@
 
 					</div>
 
+                    <div class="mb-4">
+
+    {{ form_label(form.imagen, null, {
+    'label_attr': {
+        'class': 'form-label fw-semibold text-dark small text-uppercase'
+    }
+}) }}
+
+    {{ form_widget(form.imagen, {
+    'attr': {
+        'class': 'form-control form-control-lg rounded-0 border-secondary shadow-none',
+        'accept': 'image/*'
+    }
+}) }}
+
+    <div class="small text-secondary mt-1">
+        Formatos permitidos: JPG, PNG, GIF. Tamaño máximo: 2MB
+    </div>
+
+    <div class="text-danger small mt-1">
+        {{ form_errors(form.imagen) }}
+    </div>
+
+</div>
+
 					<div class="mb-4">
 
 						<div class="form-check">
