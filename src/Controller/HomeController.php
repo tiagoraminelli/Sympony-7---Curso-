@@ -10,7 +10,7 @@ use App\Repository\CategoriaRepository;
 use App\Repository\UsersRepository;
 use App\Repository\ProveedoresRepository;
 use App\Repository\PresupuestosRepository;
-
+use App\Repository\ClientesRepository;
 
 final class HomeController extends AbstractController
 {
@@ -20,7 +20,8 @@ final class HomeController extends AbstractController
         CategoriaRepository $categoriaRepository,
         UsersRepository $usersRepository,
         ProveedoresRepository $proveedoresRepository,
-        PresupuestosRepository $presupuestosRepository
+        PresupuestosRepository $presupuestosRepository,
+        ClientesRepository $clientesRepository
     ): Response {
         return $this->render('home/index.html.twig', [
             'totalProductos' => $productosRepository->count([]),
@@ -28,6 +29,7 @@ final class HomeController extends AbstractController
             'totalUsuarios' => $usersRepository->count([]),
             'totalProveedores' => $proveedoresRepository->count([]),
             'totalPresupuestos' => $presupuestosRepository->count([]),
+            'totalClientes' => $clientesRepository->count([]),
             'breadcrumbs' => [
                 ['label' => 'Inicio', 'url' => '']
             ],
