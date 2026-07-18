@@ -36,6 +36,7 @@ class ProductosType extends AbstractType
                 ],
             ])
 
+
             ->add('precio', NumberType::class, [
                 'label' => 'Precio',
             ])
@@ -53,6 +54,12 @@ class ProductosType extends AbstractType
                 'required' => false,
                 'mapped' => false,
                 'attr' => ['accept' => 'image/*', 'class' => 'form-control']
+            ])
+            ->add('eliminar_imagen', CheckboxType::class, [
+                'label' => 'Eliminar imagen actual',
+                'required' => false,
+                'mapped' => false,
+                'attr' => ['class' => 'form-check-input rounded-0']
             ])
             ->add('activo', CheckboxType::class, [
                 'label' => 'Activo',

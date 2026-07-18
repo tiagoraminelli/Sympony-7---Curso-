@@ -378,13 +378,58 @@ final class ProductosController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'app_productos_edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, Productos $producto, EntityManagerInterface $entityManager): Response
+    public function edit(Request $request, Productos $producto, EntityManagerInterface $entityManager, SluggerInterface $slugger): Response
     {
+
+        // Guardar imagen actual para comparar después
+        $imagenActual = $producto->getImagen();
+
         $form = $this->createForm(ProductosType::class, $producto);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+
+            // Subir nueva imagen
+            $imagenFile = $form->get('imagen')->getData();
+
+            if ($imagenFile) {
+                // Eliminar imagen anterior si existe
+                if ($imagenActual) {
+                    $rutaAnterior = $this->getParameter('kernel.project_dir') . '/public/uploads/productos/' . $imagenActual;
+                    if (file_exists($rutaAnterior)) {
+                        unlink($rutaAnterior);
+                    }
+                }
+
+                $originalFilename = pathinfo($imagenFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = $slugger->slug($originalFilename);
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $imagenFile->guessExtension();
+
+                try {
+                    $imagenFile->move(
+                        $this->getParameter('kernel.project_dir') . '/public/uploads/productos',
+                        $newFilename
+                    );
+                    $producto->setImagen($newFilename);
+                } catch (FileException $e) {
+                    $this->addFlash('danger', 'Error al subir la imagen: ' . $e->getMessage());
+                }
+            }
+
+            // Si no se subió nueva imagen y el campo está vacío, eliminar la imagen existente
+            if (!$imagenFile && $form->get('eliminar_imagen')->getData()) {
+                if ($imagenActual) {
+                    $rutaAnterior = $this->getParameter('kernel.project_dir') . '/public/uploads/productos/' . $imagenActual;
+                    if (file_exists($rutaAnterior)) {
+                        unlink($rutaAnterior);
+                    }
+                    $producto->setImagen(null);
+                }
+            }
+
             $entityManager->flush();
+
+            $this->addFlash('success', 'Producto actualizado correctamente');
 
             return $this->redirectToRoute('app_productos_index', [], Response::HTTP_SEE_OTHER);
         }
