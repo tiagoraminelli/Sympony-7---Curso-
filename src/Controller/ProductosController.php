@@ -17,14 +17,69 @@ use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use Picqer\Barcode\BarcodeGeneratorSVG;
 
+
 #[Route('/productos')]
 final class ProductosController extends AbstractController
 {
 
 
+
+    #[Route('/export-pdf', name: 'app_productos_export_pdf', methods: ['GET'])]
+    public function exportPdf(
+        Request $request,
+        ProductosRepository $productosRepository,
+        CategoriaRepository $categoriaRepository
+    ): Response {
+        $search = $request->query->get('search');
+        $categoriaId = $request->query->get('categoria');
+
+        $queryBuilder = $productosRepository->createQueryBuilder('p')
+            ->leftJoin('p.categoria', 'c')
+            ->addSelect('c');
+
+        if ($search) {
+            $queryBuilder
+                ->where('p.nombre LIKE :search')
+                ->orWhere('p.descripcion LIKE :search')
+                ->orWhere('p.codigo_barra LIKE :search')
+                ->setParameter('search', '%' . $search . '%');
+        }
+
+        if ($categoriaId && $categoriaId !== '') {
+            $queryBuilder
+                ->andWhere('p.categoria = :categoriaId')
+                ->setParameter('categoriaId', $categoriaId);
+        }
+
+        $productos = $queryBuilder->orderBy('p.nombre', 'ASC')->getQuery()->getResult();
+
+        $barcodeGenerator = new BarcodeGeneratorSVG();
+        $barcodeData = [];
+
+        foreach ($productos as $producto) {
+            if ($producto->getCodigoBarra()) {
+                $barcodeData[$producto->getId()] = base64_encode(
+                    $barcodeGenerator->getBarcode($producto->getCodigoBarra(), $barcodeGenerator::TYPE_CODE_128)
+                );
+            }
+        }
+
+        return $this->render('productos/export_pdf.html.twig', [
+            'productos' => $productos,
+            'barcode_data' => $barcodeData,
+            'fecha' => (new \DateTime())->format('d/m/Y H:i'),
+            'filtros' => [
+                'search' => $search,
+                'categoria' => $categoriaId ? $categoriaRepository->find($categoriaId)?->getNombre() : 'Todas'
+            ],
+            'total' => count($productos)
+        ]);
+    }
+
     #[Route('/{id}/barcode', name: 'app_productos_barcode', methods: ['GET'])]
     public function barcode(Productos $producto): Response
     {
+
         $codigoBarra = $producto->getCodigoBarra();
 
         if (!$codigoBarra) {
